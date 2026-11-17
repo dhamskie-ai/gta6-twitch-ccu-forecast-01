@@ -54,11 +54,11 @@ practice launches scored against their SullyGnome hourly counts:
 | model | practice mean (4 cases) | 37-launch LOLO mean |
 |---|---|---|
 | house persistence baseline | 0.387 | 0.930 |
-| this model | **0.173** | **0.415** |
+| this model | **0.179** | **0.414** |
 
-Practice cases individually: Wolverine 0.212, Red Dead Redemption 2 0.173,
-God of War Ragnarök 0.114, Marvel's Spider-Man 2 0.193. 90% coverage on
-practice: 0.93. Runtime per case: well under 1 second; output is
+Practice cases individually: Wolverine 0.209, Red Dead Redemption 2 0.176,
+God of War Ragnarök 0.139, Marvel's Spider-Man 2 0.193. 90% coverage on
+practice: 0.94. Runtime per case: well under 1 second; output is
 deterministic (two runs on the same case are byte-identical).
 
 ## Files

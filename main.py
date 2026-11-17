@@ -21,16 +21,19 @@ median of r_h is estimated two ways and blended:
 The blended median is 0.6 * kNN + 0.4 * OLS.  The spread is split: the
 weighted standard deviation of the kNN neighbours' residuals above the median
 sets the upper spread, below it the lower spread (the upside tail is fatter:
-some launches explode).  Each spread has a floor of 0.20 log units.
-Quantiles are q_tau = p1 * exp(median + z_tau * spread_side).
+some launches explode).  Each spread has a floor of 0.20 log units.  Both
+spreads are then smoothed over a centred 5-hour window: the true conditional
+spread evolves smoothly over the day, while a per-hour estimate from ~40
+noisy neighbours is jumpy.  Quantiles are
+q_tau = p1 * exp(median + z_tau * spread_side).
 
 Validation (leave-one-launch-out over 37 past launches + the 4 practice
 launches, scored with the contest's log-scale pinball loss):
   * house persistence baseline: 0.387 on the 4 practice launches
     (0.930 mean over the 37, dominated by tiny-hour-1 explosions)
-  * this model: 0.173 mean on the 4 practice launches
-    (Wolverine 0.212, RDR2 0.173, God of War Ragnarok 0.114, Spider-Man 2
-    0.193), 0.415 mean over the 37, 90% coverage 0.93 on practice.
+  * this model: 0.179 mean on the 4 practice launches
+    (Wolverine 0.209, RDR2 0.176, God of War Ragnarok 0.139, Spider-Man 2
+    0.193), 0.414 mean over the 37, 90% coverage 0.94 on practice.
 
 Runtime is a fraction of a second; the program is deterministic (sorted
 input files, no randomness, no wall-clock or dict-order dependence) and uses
@@ -189,7 +192,9 @@ def forecast_case(case, name):
     lo, hi = min(log_h1s), max(log_h1s)
     log_p1_clamped = min(max(log_p1, lo), hi)
 
-    rows = []
+    # First pass: blended median and raw split spreads per hour.
+    medians = {}
+    raw_spreads = {}
     for h in hours:
         # --- kNN estimate in log(hour-1) space ---
         pairs = []
@@ -212,7 +217,18 @@ def forecast_case(case, name):
         slope = sxy / sxx if sxx > 0 else 0.0
         median_ols = (mean_y - slope * mean_x) + slope * log_p1_clamped
 
-        median = W_KNN * median_knn + (1.0 - W_KNN) * median_ols
+        medians[h] = W_KNN * median_knn + (1.0 - W_KNN) * median_ols
+        raw_spreads[h] = (sd_lo, sd_hi)
+
+    # Second pass: smooth both spreads over a centred 5-hour window, then
+    # form the quantiles.  Smoothing only the spreads, never the medians:
+    # the median shape carries the unlock steps and must stay sharp.
+    rows = []
+    for h in hours:
+        window = [raw_spreads[hh] for hh in hours if abs(hh - h) <= 2]
+        sd_lo = sum(s[0] for s in window) / len(window)
+        sd_hi = sum(s[1] for s in window) / len(window)
+        median = medians[h]
         quantiles = []
         for z in Z:
             spread = sd_hi if z > 0 else sd_lo
